@@ -36,7 +36,7 @@ void Road::ensureLength(double s) {
     const double ds = params_.spacingM;
     while (length() < s) {
         const RoadPoint& last = points_.back();
-        const double sNext = static_cast<double>(points_.size()) * ds;
+        const double sNext = static_cast<double>(base_ + points_.size()) * ds;
         const double k = curvatureAt(sNext);
         // Midpoint (RK2) integration of heading and position.
         const double kMid = 0.5 * (last.curvature + k);
@@ -48,11 +48,29 @@ void Road::ensureLength(double s) {
 }
 
 double Road::length() const noexcept {
-    return static_cast<double>(points_.size() - 1) * params_.spacingM;
+    return static_cast<double>(base_ + points_.size() - 1) * params_.spacingM;
+}
+
+double Road::startS() const noexcept {
+    return static_cast<double>(base_) * params_.spacingM;
+}
+
+void Road::trimBefore(double s) {
+    // Indices stay global (point i is at s = i * spacing); base_ records how many were dropped.
+    // Erasing the front of a vector is O(n), so do it in chunks: amortized O(1) per metre, and
+    // the retained size (hence capacity) stays bounded.
+    const double local = std::floor(s / params_.spacingM) - static_cast<double>(base_);
+    if (local < static_cast<double>(kTrimChunk)) {
+        return;
+    }
+    const auto drop = std::min(static_cast<std::size_t>(local), points_.size() - 2);
+    points_.erase(points_.begin(), points_.begin() + static_cast<std::ptrdiff_t>(drop));
+    base_ += drop;
 }
 
 RoadPoint Road::at(double s) const noexcept {
-    const double u = std::clamp(s / params_.spacingM, 0.0, static_cast<double>(points_.size() - 1));
+    const double u =
+        std::clamp(s / params_.spacingM - static_cast<double>(base_), 0.0, static_cast<double>(points_.size() - 1));
     const auto i = static_cast<std::size_t>(std::floor(u));
     if (i + 1 >= points_.size()) {
         return points_.back();
@@ -82,7 +100,7 @@ RoadProjection Road::projectRange(Vec2 p, std::size_t first, std::size_t last) c
         const double distSq = dot(d, d);
         if (distSq < best.distanceSq) {
             best.distanceSq = distSq;
-            best.s = (static_cast<double>(i) + t) * params_.spacingM;
+            best.s = (static_cast<double>(base_ + i) + t) * params_.spacingM;
             best.heading = points_[i].heading + (points_[i + 1].heading - points_[i].heading) * t;
             best.lateral = cross(ab, p - a) / std::sqrt(lenSq);
         }
@@ -92,8 +110,9 @@ RoadProjection Road::projectRange(Vec2 p, std::size_t first, std::size_t last) c
 
 RoadProjection Road::project(Vec2 p, double sHint, double windowM) const noexcept {
     const double maxIndex = static_cast<double>(points_.size() - 1);
-    const double lo = std::clamp((sHint - windowM) / params_.spacingM, 0.0, maxIndex);
-    const double hi = std::clamp((sHint + windowM) / params_.spacingM, 0.0, maxIndex);
+    const double baseIndex = static_cast<double>(base_);
+    const double lo = std::clamp((sHint - windowM) / params_.spacingM - baseIndex, 0.0, maxIndex);
+    const double hi = std::clamp((sHint + windowM) / params_.spacingM - baseIndex, 0.0, maxIndex);
     const auto first = static_cast<std::size_t>(lo);
     const auto last = static_cast<std::size_t>(std::ceil(hi));
     if (last <= first) {

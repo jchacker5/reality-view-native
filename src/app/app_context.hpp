@@ -28,6 +28,10 @@ public:
     explicit AppContext(const AppOptions& options, QObject* parent = nullptr);
     ~AppContext() override;
 
+    /// Start the producer. Call once the UI is loaded: started earlier, a slow cold start (QML
+    /// compilation under load) can overflow the queue before the first frame drains it.
+    void start();
+
     [[nodiscard]] VehicleViewModel* vehicle() const { return vehicle_.get(); }
     [[nodiscard]] FrameMonitor* monitor() const { return monitor_.get(); }
     [[nodiscard]] TelemetryWorker& worker() const { return *worker_; }

@@ -26,6 +26,9 @@ AppContext::AppContext(const AppOptions& options, QObject* parent) : QObject(par
     worker_ = std::make_unique<TelemetryWorker>(std::move(source), options.publishRateHz);
     vehicle_ = std::make_unique<VehicleViewModel>(*worker_, replay);
     monitor_ = std::make_unique<FrameMonitor>();
+}
+
+void AppContext::start() {
     worker_->start();
 }
 

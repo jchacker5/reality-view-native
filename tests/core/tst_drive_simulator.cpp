@@ -122,6 +122,16 @@ private slots:
         QVERIFY(s.latitude != 0.0 && s.longitude != 0.0);
     }
 
+    void longDriveKeepsRoadMemoryBounded() {
+        DriveSimulator sim;
+        for (int i = 0; i < 600 * 60; ++i) { // 10 simulated minutes, ~16 km
+            sim.step(1.0 / 60.0);
+        }
+        QVERIFY(sim.egoOnRoad().s > 12'000.0);
+        QVERIFY2(sim.road().points().size() < 6000, qPrintable(QString::number(sim.road().points().size())));
+        QCOMPARE(sim.autopilot(), AutopilotState::Active);
+    }
+
     void resetRestoresInitialState() {
         DriveSimulator sim;
         const TelemetrySample before = sim.sample();

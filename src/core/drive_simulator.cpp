@@ -206,6 +206,7 @@ void DriveSimulator::step(double dt) {
     model_.step(lastActuation_, dt);
 
     road_.ensureLength(egoProjection_.s + 1500.0);
+    road_.trimBefore(egoProjection_.s - 1000.0); // traffic lives within ~200 m behind
     egoProjection_ = road_.project(model_.state().pose.position, egoProjection_.s);
     updateAutopilotAvailability();
 

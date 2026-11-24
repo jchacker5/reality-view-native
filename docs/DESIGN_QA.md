@@ -134,9 +134,31 @@ throws away intermediate samples. Pick it when you only need the newest state.
 6. **Fix, then prove it** with the same measurement, and add a regression guard: a benchmark
    threshold or a test.
 
-This project's own open item is a worked example. About 5% of frames miss the 120 Hz deadline
-while sync costs 0.2 ms, so the investigation moves to QML-side and compositor costs. See
-[PERFORMANCE.md](PERFORMANCE.md#reading-these-numbers).
+This project contains a worked example
+([PERFORMANCE.md](PERFORMANCE.md#investigation-missed-frames-at-120-hz)):
+
+- About 5% of frames missed the 120 Hz deadline.
+- Phase timing showed GUI-thread sync at about 0 ms, with the time spent in the render pass.
+- An A/B matrix (MSAA, tilt, panel) showed variance larger than any effect.
+- A **control**, an empty Qt Quick window measured the same way, missed 3–6% on the same loaded
+  machine.
+
+- Re-running both on a quiet machine: the app held 120 fps with p99 under 10.5 ms, the same as
+  the control.
+
+The cause was background load (a 4-core compiler), not the app. There was nothing to optimize,
+and the data proves it. The control step is what turns guessing into knowing, and it stopped me
+from shipping "optimizations" (turning off MSAA, removing the tilt) that would have cost visual
+quality for no real gain.
+
+### Bonus: a deadlock found along the way
+
+The control tool hung on exit. Sampling the stuck process showed the main thread inside
+`QCoreApplication::quit()`, which on macOS synchronously closes the window and waits for the
+render thread, while holding a mutex. The render thread was blocked on that same mutex in
+`frameSwapped`. The rule: **never call into a framework that can wait on another thread while
+holding a lock that thread needs.** Copy under the lock, release it, then call. The app avoids
+this class of bug by handing render-thread timings over through an SPSC queue.
 
 ---
 

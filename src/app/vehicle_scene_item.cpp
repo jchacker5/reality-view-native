@@ -128,6 +128,7 @@ void VehicleSceneItem::snapshot() {
     vehicle_->consumer().trail().copyTo(std::back_inserter(trail_));
     // Extending the road allocates, so it happens here rather than on the render thread.
     road_->ensureLength(static_cast<double>(sample_.roadS) + kRoadAheadM + 50.0);
+    road_->trimBefore(static_cast<double>(sample_.roadS) - kRoadBehindM - 200.0);
     update();
 }
 

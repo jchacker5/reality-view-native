@@ -92,7 +92,7 @@ Item {
             }
         }
         Text {
-            text: "W/S throttle·brake  A/D steer  Space autopilot  Q/E lane change  T tilt  +/− zoom  R reset"
+            text: "W/S throttle·brake  A/D steer  Space autopilot  Q/E lane change  T tilt  P panel  +/− zoom  R reset"
             color: Theme.faint
             font.pixelSize: 10
         }
