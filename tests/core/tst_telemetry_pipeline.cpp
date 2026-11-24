@@ -69,21 +69,25 @@ private slots:
         pumpFrames(worker, consumer, 150ms);
         QVERIFY(consumer.ageSeconds(nowNs()) < 0.1);
 
-        QVERIFY(worker.post(cmd::InjectStall{600}));
+        // Long stall, short observation window measured on the wall clock: CI VMs coalesce
+        // timers, so "20 x sleep(16 ms)" can overrun a short stall and see fresh data.
+        QVERIFY(worker.post(cmd::InjectStall{3000}));
         QTRY_VERIFY_WITH_TIMEOUT(worker.stalled(), 1000);
+        const auto stallSeen = Clock::now();
         // Each drain must return immediately even though the producer is blocked.
         double worstDrainMs = 0.0;
-        for (int i = 0; i < 20; ++i) {
+        while (Clock::now() - stallSeen < 350ms) {
             const auto t0 = Clock::now();
             consumer.drain(worker.samples());
             worstDrainMs = std::max(worstDrainMs, std::chrono::duration<double, std::milli>(Clock::now() - t0).count());
             std::this_thread::sleep_for(16ms);
         }
         QVERIFY2(worstDrainMs < 5.0, qPrintable(QString("worst drain %1 ms").arg(worstDrainMs)));
+        QVERIFY2(worker.stalled(), "observation window must fall inside the stall");
         QVERIFY(consumer.ageSeconds(nowNs()) > 0.25);
 
         // After the stall the producer resynchronizes instead of bursting.
-        QTRY_VERIFY_WITH_TIMEOUT(!worker.stalled(), 2000);
+        QTRY_VERIFY_WITH_TIMEOUT(!worker.stalled(), 6000);
         pumpFrames(worker, consumer, 150ms);
         QVERIFY(consumer.ageSeconds(nowNs()) < 0.1);
         worker.stop();

@@ -2,6 +2,10 @@ function(rvn_add_test name)
     add_executable(${name} ${ARGN})
     target_link_libraries(${name} PRIVATE rvn::core Qt6::Test rvn_options)
     set_target_properties(${name} PROPERTIES AUTOMOC ON)
+    # Qt Test's QTRY_* macros mix int and std::chrono internally; GCC flags that under
+    # -Wconversion inside the macro expansion. Production targets keep the warning.
+    # Source-level options are emitted after interface options, so this reliably wins.
+    set_source_files_properties(${ARGN} PROPERTIES COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:GNU>:-Wno-conversion>")
     add_test(NAME ${name} COMMAND ${name})
     set_tests_properties(${name} PROPERTIES TIMEOUT 120 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endfunction()
