@@ -15,7 +15,7 @@ This document covers what the system is, why it is shaped this way, and what bre
 
 | Thread | Owns | Talks to others through |
 |---|---|---|
-| Telemetry (`std::jthread`) | `TelemetrySource` (simulator or replay) | Sample SPSC (out), command SPSC (in), atomics |
+| Telemetry (`std::thread`) | `TelemetrySource` (simulator or replay) | Sample SPSC (out), command SPSC (in), atomics |
 | GUI (main) | `VehicleViewModel`, `TelemetryConsumer`, QML, `FrameMonitor` | Drains the sample SPSC; posts to the command SPSC |
 | Render (Qt's threaded loop) | Scene-graph nodes | `updatePaintNode` during sync (GUI blocked); frame timings via SPSC |
 
@@ -36,8 +36,9 @@ loop until stop requested:
 - **Absolute deadlines** (`sleep_until`) keep per-iteration work from accumulating as drift.
 - **Resync instead of catch-up.** After a stall the loop does not replay a burst of stale steps.
   For a display, a gap is better than a fast-forward.
-- **Interruptible sleep.** `condition_variable_any::wait_until(lock, stop_token, …)` wakes on
-  `request_stop()`, so shutdown is prompt even mid-stall. A test enforces it: under 500 ms during
+- **Interruptible sleep.** `condition_variable::wait_until(lock, deadline, stopRequested)`.
+  `stop()` sets the flag *under the mutex* and then notifies, so a stop can't slip between
+  the predicate check and the wait (the classic lost wake-up). Shutdown is prompt even mid-stall. A test enforces it: under 500 ms during
   a 10 s stall.
 - **Overflow policy: drop newest, count it.** When the consumer falls behind, the producer
   refuses the sample and increments `overflowCount`. The consumer sees it as a sequence gap. The
@@ -132,7 +133,9 @@ builders emit them (`Rgba::premultiplied`, unit-tested).
 - `TelemetryWorker` owns its source through `std::unique_ptr<TelemetrySource>`. The source is
   touched only by the worker thread after `start()`. The roughly 1.7 MB sample queue is heap-
   allocated so it never lands on a caller's stack.
-- `std::jthread` gives RAII joining. A worker can never outlive its owner.
+- The worker's destructor stops and joins (RAII), so a worker thread can never outlive its
+  owner. This is the `std::jthread` + `stop_token` contract, written out by hand because
+  Apple's libc++ before LLVM 20 ships those only as experimental. CI caught this on Xcode 16.4.
 - Scene-graph nodes are owned by Qt (`OwnedByParent`, `OwnsGeometry`, `OwnsMaterial`). If the
   graph is invalidated, the item receives `nullptr` as `oldNode` and rebuilds everything.
 - QML objects that C++ creates are injected as **required properties**

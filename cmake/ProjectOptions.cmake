@@ -11,7 +11,9 @@ else()
     target_compile_options(rvn_options INTERFACE
         -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion
         -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Woverloaded-virtual
-        -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough)
+        -Wdouble-promotion -Wimplicit-fallthrough)
+    # -Wnull-dereference is deliberately off: GCC 13 reports false positives at -O3 inside
+    # std::optional and Qt headers, which would make -Werror builds flaky across compilers.
     if(RVN_WARNINGS_AS_ERRORS)
         target_compile_options(rvn_options INTERFACE -Werror)
     endif()

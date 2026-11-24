@@ -104,7 +104,7 @@ ctest --preset dev
 
 ```mermaid
 flowchart LR
-    subgraph Producer["Telemetry thread (std::jthread)"]
+    subgraph Producer["Telemetry thread"]
         SRC["TelemetrySource<br/>DriveSimulator | ReplaySource"]
     end
     subgraph GUI["GUI thread"]

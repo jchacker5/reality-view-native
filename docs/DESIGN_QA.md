@@ -34,7 +34,7 @@ pays for itself. Static chrome stays in QML.
 **Never do I/O or blocking work on the GUI thread, and never let the GUI thread wait on another
 thread.**
 
-- The producer runs on its own `std::jthread`. The GUI thread only performs a **non-blocking
+- The producer runs on its own thread (RAII-joined by its owner). The GUI thread only performs a **non-blocking
   drain** of an SPSC queue. If nothing has arrived, the drain returns immediately and the frame
   renders with the last known state.
 - **Staleness is surfaced rather than hidden.** Each sample carries a steady-clock timestamp.
@@ -43,7 +43,7 @@ thread.**
   car freezes, the banner appears, and the fps counter and the pulsing live dot keep going.
   `tst_ui_smoke::stalledProducerDoesNotStallRendering` asserts that frames keep coming.
 - **Shutdown can't hang either.** The worker's sleep is interruptible
-  (`condition_variable_any::wait_until` with a `stop_token`), so `stop()` returns in
+  (`condition_variable::wait_until` on a stop flag set under the mutex), so `stop()` returns in
   milliseconds even mid-stall.
 
 The general Qt patterns are a worker `QObject` moved to a `QThread` with queued signals, or

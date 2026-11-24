@@ -55,9 +55,10 @@ public:
     static constexpr int kMaxRateHz = 4000;
 
 private:
-    void run(const std::stop_token& stop);
+    void run();
+    [[nodiscard]] bool stopRequested() const noexcept { return stopRequested_.load(std::memory_order_acquire); }
     /// Sleep until `deadline` or until stop is requested, whichever comes first.
-    void sleepUntil(const std::stop_token& stop, std::chrono::steady_clock::time_point deadline);
+    void sleepUntil(std::chrono::steady_clock::time_point deadline);
 
     std::unique_ptr<TelemetrySource> source_;
     std::uint64_t roadSeed_;
@@ -70,9 +71,14 @@ private:
     std::atomic<std::uint64_t> produced_{0};
     std::atomic<bool> stalled_{false};
 
-    std::mutex sleepMutex_; // only guards the condition variable; never held while working
-    std::condition_variable_any sleepCv_;
-    std::jthread thread_;
+    // Stop protocol: the flag is written under sleepMutex_ and then the CV is notified, so a
+    // stop can never slip between the sleeper's predicate check and its wait (lost wake-up).
+    // This is the contract std::jthread + std::stop_token gives you; Apple's libc++ before
+    // LLVM 20 ships those only as experimental, so the worker spells it out portably.
+    std::atomic<bool> stopRequested_{false};
+    std::mutex sleepMutex_; // only guards the stop/wake handshake; never held while working
+    std::condition_variable sleepCv_;
+    std::thread thread_;
 };
 
 } // namespace rvn

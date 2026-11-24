@@ -19,14 +19,19 @@ void TelemetryWorker::start() {
     if (thread_.joinable()) {
         return;
     }
-    thread_ = std::jthread([this](const std::stop_token& st) { run(st); });
+    stopRequested_.store(false, std::memory_order_release);
+    thread_ = std::thread([this] { run(); });
 }
 
 void TelemetryWorker::stop() {
     if (!thread_.joinable()) {
         return;
     }
-    thread_.request_stop(); // wakes sleepCv_ through the stop_token
+    {
+        const std::lock_guard lock(sleepMutex_);
+        stopRequested_.store(true, std::memory_order_release);
+    }
+    sleepCv_.notify_all(); // wakes a sleeping or stalled worker immediately
     thread_.join();
 }
 
@@ -34,19 +39,19 @@ bool TelemetryWorker::post(const Command& command) {
     return commands_->tryPush(command);
 }
 
-void TelemetryWorker::sleepUntil(const std::stop_token& stop, Clock::time_point deadline) {
+void TelemetryWorker::sleepUntil(Clock::time_point deadline) {
     std::unique_lock lock(sleepMutex_);
-    // The predicate is "never satisfied": we only want the stop_token wake-up and the timeout.
-    sleepCv_.wait_until(lock, stop, deadline, [] { return false; });
+    // Returns at the deadline, or as soon as stop() is called (spurious wake-ups are re-checked).
+    sleepCv_.wait_until(lock, deadline, [this] { return stopRequested(); });
 }
 
-void TelemetryWorker::run(const std::stop_token& stop) {
+void TelemetryWorker::run() {
     std::uint64_t seq = 0;
     std::uint64_t dropoutCounter = 0;
     bool dropout = false;
     auto next = Clock::now();
 
-    while (!stop.stop_requested()) {
+    while (!stopRequested()) {
         // 1. Apply every pending command. Pipeline commands are handled here; vehicle commands
         //    go to the source.
         Command command;
@@ -55,11 +60,11 @@ void TelemetryWorker::run(const std::stop_token& stop) {
                            [this](const cmd::SetPublishRate& r) {
                                rateHz_.store(std::clamp(r.hz, kMinRateHz, kMaxRateHz), std::memory_order_relaxed);
                            },
-                           [this, &stop](const cmd::InjectStall& s) {
+                           [this](const cmd::InjectStall& s) {
                                // Deliberately block this thread, as a slow backend or a long GC
                                // pause would. The UI must keep rendering at full rate meanwhile.
                                stalled_.store(true, std::memory_order_relaxed);
-                               sleepUntil(stop, Clock::now() + std::chrono::milliseconds(s.milliseconds));
+                               sleepUntil(Clock::now() + std::chrono::milliseconds(s.milliseconds));
                                stalled_.store(false, std::memory_order_relaxed);
                            },
                            [&dropout](const cmd::SetDropout& d) { dropout = d.enabled; },
@@ -67,7 +72,7 @@ void TelemetryWorker::run(const std::stop_token& stop) {
                        },
                        command);
         }
-        if (stop.stop_requested()) {
+        if (stopRequested()) {
             break;
         }
 
@@ -98,7 +103,7 @@ void TelemetryWorker::run(const std::stop_token& stop) {
         if (now - next > std::chrono::milliseconds(100)) {
             next = now;
         }
-        sleepUntil(stop, next);
+        sleepUntil(next);
     }
 }
 

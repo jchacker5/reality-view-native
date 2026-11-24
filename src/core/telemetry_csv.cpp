@@ -3,8 +3,11 @@
 #include <array>
 #include <charconv>
 #include <istream>
+#include <locale>
 #include <ostream>
+#include <sstream>
 #include <string_view>
+#include <type_traits>
 
 namespace rvn {
 namespace {
@@ -23,9 +26,26 @@ template <typename T> void put(std::string& line, T value) {
 
 template <typename T> T parseNumber(std::string_view field, std::size_t lineNo) {
     T value{};
-    const char* end = field.data() + field.size();
-    const auto res = std::from_chars(field.data(), end, value);
-    if (res.ec != std::errc{} || res.ptr != end) {
+    bool ok = false;
+#if defined(__cpp_lib_to_chars) && __cpp_lib_to_chars >= 201611L
+    constexpr bool kHaveFromChars = true;
+#else
+    // Apple's libc++ before LLVM 20 has no floating-point from_chars.
+    constexpr bool kHaveFromChars = std::is_integral_v<T>;
+#endif
+    if constexpr (kHaveFromChars) {
+        const char* end = field.data() + field.size();
+        const auto res = std::from_chars(field.data(), end, value);
+        ok = res.ec == std::errc{} && res.ptr == end;
+    } else {
+        // Classic locale on purpose: strtod honours the process locale, and Qt sets LC_NUMERIC
+        // from the environment, so "1.5" would fail to parse on a de_DE system.
+        std::istringstream in{std::string(field)};
+        in.imbue(std::locale::classic());
+        in >> value;
+        ok = !in.fail() && in.peek() == std::char_traits<char>::eof();
+    }
+    if (!ok) {
         throw CsvParseError(lineNo, "not a number: '" + std::string(field) + "'");
     }
     return value;
