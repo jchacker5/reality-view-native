@@ -170,9 +170,14 @@ libc++ and libstdc++. The simulator uses a fixed time step. As a result:
 - **Use a triple-buffered "latest value" slot alongside the queue** for consumers that only want
   the newest state. It costs O(1) memory instead of a 4096-slot ring, at the price of losing the
   intermediate samples the trail uses.
-- **Move the trail to an incrementally appended ring buffer** in GPU memory. It is the largest
-  per-frame mesh at 36 µs for 2048 points.
 - **Add a Quick3D (or custom RHI) renderer** behind the same snapshot interface, reusing the
   splat assets from Open Tesla Reality View.
 - **Decode real telemetry**: the original project's SEI decoder could feed a `TelemetrySource`
   directly.
+
+### Deliberately not done
+
+- **Incremental GPU trail buffer.** The trail is the largest per-frame mesh, at 36 µs for 2048
+  points. That is 0.4% of a 120 Hz frame and invisible in frame statistics. An incremental
+  GPU ring would add a custom material and wrap-around bookkeeping for no measurable gain.
+  Revisit if trail length grows by 10× or the target hardware is much slower.

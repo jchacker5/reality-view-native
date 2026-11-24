@@ -52,15 +52,17 @@ Apple M4, 120 Hz ProMotion display, Release build, Metal backend. Reproduce with
 
 | Metric | 240 Hz telemetry | 4 kHz telemetry |
 |---|---:|---:|
-| Average frame rate | 110–117 fps (120 Hz display) | 111 fps |
-| Frame time p50 | 8.3 ms | 8.3 ms |
+| Average frame rate | 120 fps (120 Hz display, quiet machine) | 111–120 fps |
+| Frame time p50 / p99 | 8.3 / 9.7 ms | 8.3 ms / — |
 | Scene-graph sync (GUI thread blocked) | 0.19 ms | 0.09 ms |
 | Resident memory | ~146 MB | ~146 MB |
 
 Raising the telemetry rate 16× does not change the frame rate. That is the point of
-once-per-frame coalescing. On a 60 Hz display the app holds 60 fps with large headroom. On
-120 Hz, roughly 5% of frames still miss the 8.3 ms deadline even though our sync costs 0.2 ms;
-[docs/PERFORMANCE.md](docs/PERFORMANCE.md) covers how to investigate that and what is ruled out.
+once-per-frame coalescing. On a quiet machine it holds the full 120 Hz with a p99 under
+10.5 ms, the same as an empty Qt Quick window. Under a 4-core background build both the app and
+the empty control drop 3–9% of frames. The investigation used phase timing, an A/B matrix and a
+control (`tools/pacing_probe`); see
+[docs/PERFORMANCE.md](docs/PERFORMANCE.md#investigation-missed-frames-at-120-hz).
 
 Hot paths (`rvn_bench`, median of 7):
 
@@ -96,9 +98,12 @@ ctest --preset dev
 | `--replay <file.csv>` | Replay a recorded drive instead of simulating (try `samples/sample-drive.csv`) |
 | `--benchmark-seconds <n>` | Run, print frame statistics as JSON, exit |
 | `--screenshot <file.png>` | Save a screenshot after 3 s, exit |
+| `--msaa <0\|2\|4\|8>` | Multisample anti-aliasing (default 4) |
+| `--view <3d\|2d>` | Initial camera: tilted chase view or top-down |
+| `--panel <on\|off>` | Show the side panel, or the visualization only |
 
 **Keys:** `W`/`S` throttle and brake · `A`/`D` steer · `Space` Autopilot · `Q`/`E` lane change ·
-`[`/`]` cruise speed · `T` 2D/3D · `+`/`−` zoom · `R` reset.
+`[`/`]` cruise speed · `T` 2D/3D · `P` panel · `+`/`−` zoom · `R` reset.
 
 ## Architecture
 
@@ -139,9 +144,9 @@ discuss.
 |---|---|
 | `tst_spsc_ring_buffer` | FIFO, full and empty edges, wrap-around, 2M items across 2 threads in order (run under TSan) |
 | `tst_telemetry_pipeline` | No gaps when healthy; `stop()` interrupts a 10 s stall; consumer never blocks during a stall; dropout and overflow are detected as sequence gaps |
-| `tst_drive_simulator` | Lane keeping over 2 min within 0.5 m, ACC never closer than 2 m, lane change and auto-cancel, driver override, gear interlocks, determinism |
+| `tst_drive_simulator` | Lane keeping over 2 min within 0.5 m, ACC never closer than 2 m, lane change and auto-cancel, driver override, gear interlocks, determinism, bounded road memory on a long drive |
 | `tst_vehicle_model` | Braking never reverses, rate-limited steering, turning radius matches L / tan δ |
-| `tst_road` | Seed determinism, smoothness, hinted projection == brute force |
+| `tst_road` | Seed determinism, smoothness, hinted projection == brute force, trimming the passed road changes no results and keeps memory bounded on an endless drive |
 | `tst_scene_geometry` | Premultiplied alpha, floating origin keeps vertices small at 55 km, degenerate input yields no NaNs |
 | `tst_telemetry_csv` | Bit-exact round trip; malformed input rejected with the right line number |
 | `tst_frame_stats`, `tst_geometry` | Percentiles, jank, sliding window; transforms and lat/lon |

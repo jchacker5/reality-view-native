@@ -9,7 +9,10 @@
 #include <QTimer>
 #include <QtQml/QQmlExtensionPlugin>
 
+#include <algorithm>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <exception>
 
 Q_LOGGING_CATEGORY(lcApp, "rvn.app")
@@ -17,10 +20,25 @@ Q_LOGGING_CATEGORY(lcApp, "rvn.app")
 // The QML module is a static library; make its types and files visible to the engine.
 Q_IMPORT_QML_PLUGIN(RealityViewPlugin)
 
+namespace {
+
+/// The surface format must be set before QGuiApplication exists, so --msaa is read from argv
+/// directly (QCommandLineParser below still documents and validates it).
+int msaaSamplesFromArgs(int argc, char* argv[]) {
+    for (int i = 1; i + 1 < argc; ++i) {
+        if (std::strcmp(argv[i], "--msaa") == 0) {
+            return std::clamp(std::atoi(argv[i + 1]), 0, 8);
+        }
+    }
+    return 4;
+}
+
+} // namespace
+
 int main(int argc, char* argv[]) {
-    // 4x MSAA for smooth road edges and car outlines. Must be set before the window exists.
+    // MSAA smooths road edges and car outlines, at a fill-rate cost (see docs/PERFORMANCE.md).
     QSurfaceFormat format = QSurfaceFormat::defaultFormat();
-    format.setSamples(4);
+    format.setSamples(msaaSamplesFromArgs(argc, argv));
     QSurfaceFormat::setDefaultFormat(format);
 
     QGuiApplication app(argc, argv);
@@ -44,7 +62,16 @@ int main(int argc, char* argv[]) {
     const QCommandLineOption shotOpt(QStringLiteral("screenshot"),
                                      QStringLiteral("Save a PNG of the window after 3 s, then exit."),
                                      QStringLiteral("file"));
-    parser.addOptions({seedOpt, rateOpt, replayOpt, benchOpt, shotOpt});
+    const QCommandLineOption msaaOpt(QStringLiteral("msaa"),
+                                     QStringLiteral("Multisample anti-aliasing samples: 0, 2, 4 or 8."),
+                                     QStringLiteral("n"), QStringLiteral("4"));
+    const QCommandLineOption viewOpt(QStringLiteral("view"),
+                                     QStringLiteral("Initial camera: 3d (tilted) or 2d (top-down)."),
+                                     QStringLiteral("mode"), QStringLiteral("3d"));
+    const QCommandLineOption panelOpt(QStringLiteral("panel"),
+                                      QStringLiteral("Show the side panel (on) or the visualization only (off)."),
+                                      QStringLiteral("on|off"), QStringLiteral("on"));
+    parser.addOptions({seedOpt, rateOpt, replayOpt, benchOpt, shotOpt, msaaOpt, viewOpt, panelOpt});
     parser.process(app);
 
     rvn::AppOptions options;
@@ -64,6 +91,8 @@ int main(int argc, char* argv[]) {
     engine.setInitialProperties({
         {QStringLiteral("vehicle"), QVariant::fromValue(context->vehicle())},
         {QStringLiteral("monitor"), QVariant::fromValue(context->monitor())},
+        {QStringLiteral("startTilted"), parser.value(viewOpt) != QStringLiteral("2d")},
+        {QStringLiteral("showPanel"), parser.value(panelOpt) != QStringLiteral("off")},
     });
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); },
@@ -78,6 +107,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     context->monitor()->attach(window);
+    context->start();
     // Bring the window forward: macOS throttles occluded windows, which would skew measurements.
     window->raise();
     window->requestActivate();

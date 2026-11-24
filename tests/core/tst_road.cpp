@@ -70,6 +70,43 @@ private slots:
         }
     }
 
+    void trimmingDoesNotChangeResults() {
+        Road full(9);
+        Road trimmed(9);
+        full.ensureLength(20'000);
+        trimmed.ensureLength(20'000);
+        trimmed.trimBefore(15'000.0);
+        QVERIFY(trimmed.startS() > 12'000.0);
+        QCOMPARE(trimmed.length(), full.length());
+        // Start one search window past the trim point: at startS() itself the trimmed road cannot
+        // see the segment before it, so a vertex tie can resolve to the neighbouring segment
+        // (1e-9 m apart). Callers trim >= 250 m behind any query, so that edge is never hit.
+        for (double s = trimmed.startS() + 100.0; s < 19'900.0; s += 123.4) {
+            QCOMPARE(trimmed.at(s).position.x, full.at(s).position.x);
+            QCOMPARE(trimmed.at(s).heading, full.at(s).heading);
+            const Vec2 p = full.pointAt(s, 2.0);
+            const RoadProjection a = full.project(p, s);
+            const RoadProjection b = trimmed.project(p, s);
+            QCOMPARE(b.s, a.s);
+            QCOMPARE(b.lateral, a.lateral);
+        }
+        // Generation continues from the trimmed state identically.
+        full.ensureLength(25'000);
+        trimmed.ensureLength(25'000);
+        QCOMPARE(trimmed.at(24'500.0).position.y, full.at(24'500.0).position.y);
+    }
+
+    void memoryStaysBoundedOnEndlessDrive() {
+        Road r(4);
+        std::size_t peak = 0;
+        for (double s = 0.0; s < 200'000.0; s += 50.0) { // 200 km, the way the simulator drives it
+            r.ensureLength(s + 1500.0);
+            r.trimBefore(s - 1000.0);
+            peak = std::max(peak, r.points().size());
+        }
+        QVERIFY2(peak < 1000 + 1500 + Road::kTrimChunk + 100, qPrintable(QString::number(peak)));
+    }
+
     void lanes() {
         Road r(1); // 3 lanes, 3.7 m
         QVERIFY(std::abs(r.laneCenterOffset(0) + 3.7) < 1e-12);

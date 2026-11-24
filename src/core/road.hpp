@@ -36,6 +36,8 @@ struct RoadProjection {
 /// std::uniform_real_distribution: the distributions are implementation-defined, so the
 /// "same" seed would produce different roads on libc++ and libstdc++.
 ///
+/// Memory: callers trim behind the vehicle (trimBefore), so storage is bounded (~100 KB).
+///
 /// Thread-safety: not shared. The simulator thread and the render side each own a Road built
 /// from the same seed, which gives both the identical road with zero synchronization.
 class Road {
@@ -45,7 +47,15 @@ public:
     /// Extend the centreline so that `at(s)` is valid. Amortized O(1) per metre.
     void ensureLength(double s);
 
-    [[nodiscard]] double length() const noexcept;
+    [[nodiscard]] double length() const noexcept; ///< arc length of the last generated point
+    [[nodiscard]] double startS() const noexcept; ///< arc length of the first retained point
+
+    /// Drop centreline points before `s` so memory stays bounded on an endless drive. Arc
+    /// lengths are unchanged (indices are global), so results for retained s are identical.
+    /// Queries before startS() clamp to the first retained point; trim at least one projection
+    /// window behind the earliest s you will query.
+    void trimBefore(double s);
+    static constexpr std::size_t kTrimChunk = 2048;
     [[nodiscard]] RoadPoint at(double s) const noexcept; ///< linear interpolation, clamped
     [[nodiscard]] Vec2 pointAt(double s, double lateral) const noexcept;
 
@@ -61,6 +71,7 @@ public:
     [[nodiscard]] double halfWidth() const noexcept;
 
     [[nodiscard]] const RoadParams& params() const noexcept { return params_; }
+    /// Retained points only: points()[0] is at arc length startS().
     [[nodiscard]] std::span<const RoadPoint> points() const noexcept { return points_; }
 
 private:
@@ -75,6 +86,7 @@ private:
     RoadParams params_;
     std::array<Wave, 3> waves_{};
     std::vector<RoadPoint> points_;
+    std::size_t base_{0}; ///< global index of points_[0]
 };
 
 } // namespace rvn

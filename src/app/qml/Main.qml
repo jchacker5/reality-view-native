@@ -7,6 +7,8 @@ ApplicationWindow {
     id: root
     required property VehicleViewModel vehicle
     required property FrameMonitor monitor
+    property bool startTilted: true
+    property bool showPanel: true
 
     width: 1480
     height: 900
@@ -33,6 +35,7 @@ ApplicationWindow {
         vehicle: root.vehicle
         onZoomRequested: (factor) => scene.zoomBy(factor)
         onTiltToggled: scene.tilted = !scene.tilted
+        onPanelToggled: root.showPanel = !root.showPanel
     }
 
     RowLayout {
@@ -58,12 +61,14 @@ ApplicationWindow {
                     Layout.fillHeight: true
                     vehicle: root.vehicle
                     monitor: root.monitor
+                    tilted: root.startTilted
                 }
             }
         }
 
         // ---- Right: controls and instrumentation ----------------------------------------
         ScrollView {
+            visible: root.showPanel
             Layout.preferredWidth: 440
             Layout.fillHeight: true
             contentWidth: availableWidth

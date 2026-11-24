@@ -19,6 +19,7 @@ Item {
 
     signal zoomRequested(real factor)
     signal tiltToggled()
+    signal panelToggled()
 
     function frame(dt) {
         const target = steeringLeft ? 1 : (steeringRight ? -1 : 0)
@@ -54,6 +55,7 @@ Item {
         case Qt.Key_E: vehicle.signalTurn(vehicle.turnSignal === 2 ? 0 : 2); break
         case Qt.Key_R: vehicle.reset(); break
         case Qt.Key_T: input.tiltToggled(); break
+        case Qt.Key_P: input.panelToggled(); break
         case Qt.Key_Plus: case Qt.Key_Equal: input.zoomRequested(1.2); break
         case Qt.Key_Minus: input.zoomRequested(1 / 1.2); break
         case Qt.Key_BracketRight: vehicle.adjustCruise(5); break

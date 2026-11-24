@@ -41,6 +41,7 @@ private slots:
         window_ = qobject_cast<QQuickWindow*>(engine_->rootObjects().constFirst());
         QVERIFY(window_ != nullptr);
         context_->monitor()->attach(window_);
+        context_->start();
         QVERIFY(QTest::qWaitForWindowExposed(window_));
     }
 
