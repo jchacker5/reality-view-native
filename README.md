@@ -144,9 +144,9 @@ discuss.
 |---|---|
 | `tst_spsc_ring_buffer` | FIFO, full and empty edges, wrap-around, 2M items across 2 threads in order (run under TSan) |
 | `tst_telemetry_pipeline` | No gaps when healthy; `stop()` interrupts a 10 s stall; consumer never blocks during a stall; dropout and overflow are detected as sequence gaps |
-| `tst_drive_simulator` | Lane keeping over 2 min within 0.5 m, ACC never closer than 2 m, lane change and auto-cancel, driver override, gear interlocks, determinism |
+| `tst_drive_simulator` | Lane keeping over 2 min within 0.5 m, ACC never closer than 2 m, lane change and auto-cancel, driver override, gear interlocks, determinism, bounded road memory on a long drive |
 | `tst_vehicle_model` | Braking never reverses, rate-limited steering, turning radius matches L / tan δ |
-| `tst_road` | Seed determinism, smoothness, hinted projection == brute force |
+| `tst_road` | Seed determinism, smoothness, hinted projection == brute force, trimming the passed road changes no results and keeps memory bounded on an endless drive |
 | `tst_scene_geometry` | Premultiplied alpha, floating origin keeps vertices small at 55 km, degenerate input yields no NaNs |
 | `tst_telemetry_csv` | Bit-exact round trip; malformed input rejected with the right line number |
 | `tst_frame_stats`, `tst_geometry` | Percentiles, jank, sliding window; transforms and lat/lon |
