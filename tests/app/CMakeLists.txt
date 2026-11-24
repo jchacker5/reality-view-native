@@ -1,0 +1,11 @@
+find_package(Qt6 REQUIRED COMPONENTS Quick Test)
+
+add_executable(tst_ui_smoke tst_ui_smoke.cpp)
+target_link_libraries(tst_ui_smoke PRIVATE rvn_ui rvn_uiplugin Qt6::Quick Qt6::Test rvn_options)
+set_target_properties(tst_ui_smoke PROPERTIES AUTOMOC ON)
+add_test(NAME tst_ui_smoke COMMAND tst_ui_smoke)
+# Headless: offscreen windowing plus Qt's "null" RHI backend, which runs the whole scene-graph
+# pipeline (sync, updatePaintNode, render loop) without needing a GPU on the CI runner.
+set_tests_properties(tst_ui_smoke PROPERTIES
+    TIMEOUT 120
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QSG_RHI_BACKEND=null;QT_QUICK_CONTROLS_STYLE=Basic")

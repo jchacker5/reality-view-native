@@ -1,0 +1,108 @@
+#include "app_context.hpp"
+
+#include <QCommandLineParser>
+#include <QGuiApplication>
+#include <QLoggingCategory>
+#include <QQmlApplicationEngine>
+#include <QQuickWindow>
+#include <QSurfaceFormat>
+#include <QTimer>
+#include <QtQml/QQmlExtensionPlugin>
+
+#include <cstdio>
+#include <exception>
+
+Q_LOGGING_CATEGORY(lcApp, "rvn.app")
+
+// The QML module is a static library; make its types and files visible to the engine.
+Q_IMPORT_QML_PLUGIN(RealityViewPlugin)
+
+int main(int argc, char* argv[]) {
+    // 4x MSAA for smooth road edges and car outlines. Must be set before the window exists.
+    QSurfaceFormat format = QSurfaceFormat::defaultFormat();
+    format.setSamples(4);
+    QSurfaceFormat::setDefaultFormat(format);
+
+    QGuiApplication app(argc, argv);
+    QGuiApplication::setApplicationName(QStringLiteral("Reality View Native"));
+    QGuiApplication::setApplicationVersion(QStringLiteral(RVN_VERSION));
+
+    QCommandLineParser parser;
+    parser.setApplicationDescription(QStringLiteral("Real-time vehicle visualization with simulated telemetry"));
+    parser.addHelpOption();
+    parser.addVersionOption();
+    const QCommandLineOption seedOpt(QStringLiteral("seed"), QStringLiteral("Road and traffic seed."),
+                                     QStringLiteral("n"), QStringLiteral("7"));
+    const QCommandLineOption rateOpt(QStringLiteral("rate"), QStringLiteral("Telemetry publish rate in Hz (10-4000)."),
+                                     QStringLiteral("hz"), QStringLiteral("240"));
+    const QCommandLineOption replayOpt(QStringLiteral("replay"),
+                                       QStringLiteral("Replay a recorded telemetry CSV instead of simulating."),
+                                       QStringLiteral("file"));
+    const QCommandLineOption benchOpt(QStringLiteral("benchmark-seconds"),
+                                      QStringLiteral("Run for N seconds, print frame statistics as JSON, and exit."),
+                                      QStringLiteral("n"));
+    const QCommandLineOption shotOpt(QStringLiteral("screenshot"),
+                                     QStringLiteral("Save a PNG of the window after 3 s, then exit."),
+                                     QStringLiteral("file"));
+    parser.addOptions({seedOpt, rateOpt, replayOpt, benchOpt, shotOpt});
+    parser.process(app);
+
+    rvn::AppOptions options;
+    options.seed = parser.value(seedOpt).toULongLong();
+    options.publishRateHz = parser.value(rateOpt).toInt();
+    options.replayPath = parser.value(replayOpt);
+
+    std::unique_ptr<rvn::AppContext> context;
+    try {
+        context = std::make_unique<rvn::AppContext>(options);
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "error: %s\n", e.what());
+        return 2;
+    }
+
+    QQmlApplicationEngine engine;
+    engine.setInitialProperties({
+        {QStringLiteral("vehicle"), QVariant::fromValue(context->vehicle())},
+        {QStringLiteral("monitor"), QVariant::fromValue(context->monitor())},
+    });
+    QObject::connect(
+        &engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); },
+        Qt::QueuedConnection);
+    engine.loadFromModule("RealityView", "Main");
+    if (engine.rootObjects().isEmpty()) {
+        return 1;
+    }
+    auto* window = qobject_cast<QQuickWindow*>(engine.rootObjects().constFirst());
+    if (window == nullptr) {
+        qCCritical(lcApp) << "root object is not a window";
+        return 1;
+    }
+    context->monitor()->attach(window);
+    // Bring the window forward: macOS throttles occluded windows, which would skew measurements.
+    window->raise();
+    window->requestActivate();
+
+    if (parser.isSet(benchOpt)) {
+        const int seconds = std::max(1, parser.value(benchOpt).toInt());
+        // Discard the first second (shader compilation, first uploads) from the statistics.
+        QTimer::singleShot(1000, context->monitor(), &rvn::FrameMonitor::resetStats);
+        QTimer::singleShot((seconds + 1) * 1000, &app, [&context] {
+            std::printf("%s\n", qPrintable(context->monitor()->summaryJson()));
+            std::fflush(stdout);
+            QCoreApplication::quit();
+        });
+    }
+
+    if (parser.isSet(shotOpt)) {
+        const QString path = parser.value(shotOpt);
+        QTimer::singleShot(3000, window, [window, path] {
+            const bool ok = window->grabWindow().save(path);
+            std::fprintf(ok ? stdout : stderr, "%s %s\n", ok ? "saved" : "failed to save", qPrintable(path));
+            QCoreApplication::exit(ok ? 0 : 1);
+        });
+    }
+
+    const int rc = QGuiApplication::exec();
+    engine.clearComponentCache();
+    return rc;
+}
