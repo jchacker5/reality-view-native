@@ -57,6 +57,15 @@ int main(int argc, char* argv[]) {
     const QCommandLineOption replayOpt(QStringLiteral("replay"),
                                        QStringLiteral("Replay a recorded telemetry CSV instead of simulating."),
                                        QStringLiteral("file"));
+    const QCommandLineOption dbcOpt(QStringLiteral("dbc"),
+                                    QStringLiteral("DBC database describing CAN signals (with --can or --can-log)."),
+                                    QStringLiteral("file"));
+    const QCommandLineOption canOpt(
+        QStringLiteral("can"), QStringLiteral("Read live CAN frames from a Linux SocketCAN interface (e.g. vcan0)."),
+        QStringLiteral("iface"));
+    const QCommandLineOption canLogOpt(QStringLiteral("can-log"),
+                                       QStringLiteral("Replay a candump log file decoded with --dbc."),
+                                       QStringLiteral("file"));
     const QCommandLineOption benchOpt(QStringLiteral("benchmark-seconds"),
                                       QStringLiteral("Run for N seconds, print frame statistics as JSON, and exit."),
                                       QStringLiteral("n"));
@@ -74,11 +83,25 @@ int main(int argc, char* argv[]) {
                                       QStringLiteral("on|off"), QStringLiteral("on"));
     const QCommandLineOption demoOpt(
         QStringLiteral("demo"), QStringLiteral("Play a scripted 30 s demonstration sequence (loops until closed)."));
-    parser.addOptions({seedOpt, rateOpt, replayOpt, benchOpt, shotOpt, msaaOpt, viewOpt, panelOpt, demoOpt});
+    parser.addOptions({seedOpt, rateOpt, replayOpt, dbcOpt, canOpt, canLogOpt, benchOpt, shotOpt, msaaOpt, viewOpt,
+                       panelOpt, demoOpt});
     parser.process(app);
 
-    if (parser.isSet(demoOpt) && parser.isSet(replayOpt)) {
-        std::fprintf(stderr, "error: --demo cannot be combined with --replay\n");
+    const bool hasCan = parser.isSet(canOpt) || parser.isSet(canLogOpt);
+    if (parser.isSet(canOpt) && parser.isSet(canLogOpt)) {
+        std::fprintf(stderr, "error: --can and --can-log are mutually exclusive\n");
+        return 2;
+    }
+    if (parser.isSet(replayOpt) && hasCan) {
+        std::fprintf(stderr, "error: --replay cannot be combined with --can or --can-log\n");
+        return 2;
+    }
+    if (hasCan && !parser.isSet(dbcOpt)) {
+        std::fprintf(stderr, "error: --dbc <file.dbc> is required with --can or --can-log\n");
+        return 2;
+    }
+    if (parser.isSet(demoOpt) && (parser.isSet(replayOpt) || hasCan)) {
+        std::fprintf(stderr, "error: --demo cannot be combined with --replay, --can, or --can-log\n");
         return 2;
     }
 
@@ -86,6 +109,9 @@ int main(int argc, char* argv[]) {
     options.seed = parser.value(seedOpt).toULongLong();
     options.publishRateHz = parser.value(rateOpt).toInt();
     options.replayPath = parser.value(replayOpt);
+    options.dbcPath = parser.value(dbcOpt);
+    options.canInterface = parser.value(canOpt);
+    options.canLogPath = parser.value(canLogOpt);
 
     std::unique_ptr<rvn::AppContext> context;
     try {

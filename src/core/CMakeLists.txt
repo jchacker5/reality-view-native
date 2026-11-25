@@ -1,4 +1,7 @@
 add_library(rvn_core STATIC
+    can_bus.cpp
+    can_source.cpp
+    dbc.cpp
     drive_simulator.cpp
     frame_stats.cpp
     process_stats.cpp

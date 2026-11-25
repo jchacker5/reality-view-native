@@ -18,6 +18,8 @@ rvn_add_test(tst_drive_simulator core/tst_drive_simulator.cpp)
 rvn_add_test(tst_telemetry_pipeline core/tst_telemetry_pipeline.cpp)
 rvn_add_test(tst_frame_stats core/tst_frame_stats.cpp)
 rvn_add_test(tst_telemetry_csv core/tst_telemetry_csv.cpp)
+rvn_add_test(tst_dbc core/tst_dbc.cpp)
+rvn_add_test(tst_can_source core/tst_can_source.cpp)
 rvn_add_test(tst_scene_geometry core/tst_scene_geometry.cpp)
 
 if(RVN_BUILD_APP)
