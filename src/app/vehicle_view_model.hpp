@@ -55,6 +55,7 @@ class VehicleViewModel : public QObject {
     Q_PROPERTY(double dataAgeMs READ dataAgeMs NOTIFY pipelineChanged)
     Q_PROPERTY(bool stale READ stale NOTIFY pipelineChanged)
     Q_PROPERTY(bool producerStalled READ producerStalled NOTIFY pipelineChanged)
+    Q_PROPERTY(int lastStallMs READ lastStallMs NOTIFY pipelineChanged)
     Q_PROPERTY(bool dropoutEnabled READ dropoutEnabled NOTIFY pipelineChanged)
     Q_PROPERTY(double drainMicros READ drainMicros NOTIFY pipelineChanged)
     Q_PROPERTY(int queueDepth READ queueDepth NOTIFY pipelineChanged)
@@ -114,6 +115,7 @@ public:
     [[nodiscard]] double dataAgeMs() const { return dataAgeMs_; }
     [[nodiscard]] bool stale() const { return dataAgeMs_ > kStaleMs; }
     [[nodiscard]] bool producerStalled() const { return worker_.stalled(); }
+    [[nodiscard]] int lastStallMs() const { return lastStallMs_; }
     [[nodiscard]] bool dropoutEnabled() const { return dropout_; }
     [[nodiscard]] double drainMicros() const { return drainMicros_; }
     [[nodiscard]] int queueDepth() const { return static_cast<int>(worker_.samples().sizeApprox()); }
@@ -136,6 +138,7 @@ private:
     TelemetryConsumer consumer_;
     bool replay_;
     bool dropout_{false};
+    int lastStallMs_{0};
 
     QElapsedTimer pipelineClock_;
     QElapsedTimer seriesClock_;

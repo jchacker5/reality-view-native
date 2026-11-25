@@ -123,7 +123,9 @@ void VehicleViewModel::setPublishRate(int hz) {
     post(cmd::SetPublishRate{hz});
 }
 void VehicleViewModel::injectStall(int milliseconds) {
+    lastStallMs_ = milliseconds;
     post(cmd::InjectStall{milliseconds});
+    emit pipelineChanged();
 }
 
 void VehicleViewModel::setDropout(bool enabled) {

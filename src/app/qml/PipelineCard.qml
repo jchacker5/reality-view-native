@@ -48,8 +48,20 @@ Card {
     RowLayout {
         Layout.fillWidth: true
         spacing: 6
-        PillButton { Layout.fillWidth: true; text: "Stall 500 ms"; tint: Theme.warn; active: card.vehicle.producerStalled; onClicked: card.vehicle.injectStall(500) }
-        PillButton { Layout.fillWidth: true; text: "Stall 3 s"; tint: Theme.warn; onClicked: card.vehicle.injectStall(3000) }
+        PillButton {
+            Layout.fillWidth: true
+            text: "Stall 500 ms"
+            tint: Theme.warn
+            active: card.vehicle.producerStalled && card.vehicle.lastStallMs === 500
+            onClicked: card.vehicle.injectStall(500)
+        }
+        PillButton {
+            Layout.fillWidth: true
+            text: "Stall 3 s"
+            tint: Theme.warn
+            active: card.vehicle.producerStalled && card.vehicle.lastStallMs === 3000
+            onClicked: card.vehicle.injectStall(3000)
+        }
         PillButton {
             Layout.fillWidth: true
             text: "Drop 30%"

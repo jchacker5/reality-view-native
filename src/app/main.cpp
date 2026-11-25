@@ -1,4 +1,5 @@
 #include "app_context.hpp"
+#include "demo_director.hpp"
 
 #include <QCommandLineParser>
 #include <QGuiApplication>
@@ -71,8 +72,15 @@ int main(int argc, char* argv[]) {
     const QCommandLineOption panelOpt(QStringLiteral("panel"),
                                       QStringLiteral("Show the side panel (on) or the visualization only (off)."),
                                       QStringLiteral("on|off"), QStringLiteral("on"));
-    parser.addOptions({seedOpt, rateOpt, replayOpt, benchOpt, shotOpt, msaaOpt, viewOpt, panelOpt});
+    const QCommandLineOption demoOpt(
+        QStringLiteral("demo"), QStringLiteral("Play a scripted 30 s demonstration sequence (loops until closed)."));
+    parser.addOptions({seedOpt, rateOpt, replayOpt, benchOpt, shotOpt, msaaOpt, viewOpt, panelOpt, demoOpt});
     parser.process(app);
+
+    if (parser.isSet(demoOpt) && parser.isSet(replayOpt)) {
+        std::fprintf(stderr, "error: --demo cannot be combined with --replay\n");
+        return 2;
+    }
 
     rvn::AppOptions options;
     options.seed = parser.value(seedOpt).toULongLong();
@@ -111,6 +119,12 @@ int main(int argc, char* argv[]) {
     // Bring the window forward: macOS throttles occluded windows, which would skew measurements.
     window->raise();
     window->requestActivate();
+
+    std::unique_ptr<rvn::DemoDirector> demo;
+    if (parser.isSet(demoOpt)) {
+        demo = std::make_unique<rvn::DemoDirector>(*context->vehicle(), options.publishRateHz, true);
+        demo->start();
+    }
 
     if (parser.isSet(benchOpt)) {
         const int seconds = std::max(1, parser.value(benchOpt).toInt());
