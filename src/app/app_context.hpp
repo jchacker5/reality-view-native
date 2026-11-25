@@ -14,7 +14,10 @@ namespace rvn {
 struct AppOptions {
     std::uint64_t seed{7};
     int publishRateHz{240};
-    QString replayPath; ///< empty = live simulator
+    QString replayPath;   ///< empty = live simulator (unless CAN options are set)
+    QString dbcPath;      ///< .dbc database for --can or --can-log
+    QString canInterface; ///< SocketCAN interface name on Linux (e.g. vcan0)
+    QString canLogPath;   ///< recorded candump log file
 };
 
 /// Composition root: builds the object graph in dependency order and tears it down in reverse.

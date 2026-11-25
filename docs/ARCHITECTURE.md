@@ -15,7 +15,7 @@ This document covers what the system is, why it is shaped this way, and what bre
 
 | Thread | Owns | Talks to others through |
 |---|---|---|
-| Telemetry (`std::thread`) | `TelemetrySource` (simulator or replay) | Sample SPSC (out), command SPSC (in), atomics |
+| Telemetry (`std::thread`) | `TelemetrySource` (simulator, CSV replay, or CAN + DBC) | Sample SPSC (out), command SPSC (in), atomics |
 | GUI (main) | `VehicleViewModel`, `TelemetryConsumer`, QML, `FrameMonitor` | Drains the sample SPSC; posts to the command SPSC |
 | Render (Qt's threaded loop) | Scene-graph nodes | `updatePaintNode` during sync (GUI blocked); frame timings via SPSC |
 
@@ -172,8 +172,9 @@ libc++ and libstdc++. The simulator uses a fixed time step. As a result:
   intermediate samples the trail uses.
 - **Add a Quick3D (or custom RHI) renderer** behind the same snapshot interface, reusing the
   splat assets from Open Tesla Reality View.
-- **Decode real telemetry**: the original project's SEI decoder could feed a `TelemetrySource`
-  directly.
+- **Decode proprietary OEM telemetry**: `CanTelemetrySource` already plugs DBC-decoded CAN
+  frames (SocketCAN on Linux or `candump` logs cross-platform) into `TelemetrySource`; the
+  original project's SEI decoder can plug in behind the same interface.
 
 ### Deliberately not done
 

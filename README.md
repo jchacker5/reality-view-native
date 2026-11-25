@@ -42,8 +42,10 @@ for every performance claim.
   sequence gaps and queue overflows.
 - **Built-in instrumentation**: frame-time p50/p95/p99, jank against the display's real refresh
   interval, GUI-thread sync cost, process CPU and RSS, all measured live.
-- **Replay** recorded drives from CSV (`--replay`), with a headless recorder tool.
-- **Benchmarks, 10 test suites, sanitizers and CI** on Linux and macOS.
+- **Replay & CAN bus telemetry**: replay recorded CSVs (`--replay`), or decode CAN frames
+  against a `.dbc` database from a recorded `candump` log (`--can-log`) or a live Linux
+  SocketCAN interface (`--can vcan0`), with `rvn_can_tx` to generate or stream CAN traffic.
+- **Benchmarks, 12 test suites, sanitizers and CI** on Linux and macOS.
 
 ## Measured performance
 
@@ -96,6 +98,9 @@ ctest --preset dev
 | `--rate <hz>` | Telemetry publish rate, 10–4000 Hz (default 240) |
 | `--seed <n>` | Road and traffic seed |
 | `--replay <file.csv>` | Replay a recorded drive instead of simulating (try `samples/sample-drive.csv`) |
+| `--dbc <file.dbc>` | Vector DBC signal database (required with `--can` or `--can-log`; try `samples/vehicle.dbc`) |
+| `--can <iface>` | Read live CAN frames from a Linux SocketCAN interface (e.g. `vcan0`) |
+| `--can-log <file.candump>` | Replay a recorded `candump` log through `--dbc` (try `samples/sample-drive.candump`) |
 | `--benchmark-seconds <n>` | Run, print frame statistics as JSON, exit |
 | `--screenshot <file.png>` | Save a screenshot after 3 s, exit |
 | `--msaa <0\|2\|4\|8>` | Multisample anti-aliasing (default 4) |
@@ -150,6 +155,8 @@ discuss.
 | `tst_road` | Seed determinism, smoothness, hinted projection == brute force, trimming the passed road changes no results and keeps memory bounded on an endless drive |
 | `tst_scene_geometry` | Premultiplied alpha, floating origin keeps vertices small at 55 km, degenerate input yields no NaNs |
 | `tst_telemetry_csv` | Bit-exact round trip; malformed input rejected with the right line number |
+| `tst_dbc` | Vector DBC parser, Intel `@1` & Motorola `@0` bit packing, extended IDs, `TelemetrySample` round trip, line-numbered errors |
+| `tst_can_source` | `candump` log replay and looping, malformed log errors, live `MemoryCanBus` → `TelemetryWorker` pipeline |
 | `tst_frame_stats`, `tst_geometry` | Percentiles, jank, sliding window; transforms and lat/lon |
 | `tst_ui_smoke` | Boots the real QML UI headless (offscreen + null RHI) and fails on any QML warning; frames render; commands round-trip; a stalled producer does not stall rendering |
 
