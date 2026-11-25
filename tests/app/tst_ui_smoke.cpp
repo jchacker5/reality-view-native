@@ -3,6 +3,7 @@
 // updatePaintNode runs, commands flow UI -> worker, and a stalled producer does not stall
 // rendering.
 #include "app_context.hpp"
+#include "demo_director.hpp"
 #include "vehicle_scene_item.hpp"
 
 #include <QQmlApplicationEngine>
@@ -76,6 +77,16 @@ private slots:
         QVERIFY2(context_->monitor()->totalFrames() > framesAtStall + 10,
                  "the render loop must keep producing frames while telemetry is stalled");
         QTRY_VERIFY_WITH_TIMEOUT(!context_->vehicle()->stale(), 5000);
+    }
+
+    void demoDirectorStartsAndStopsCleanly() {
+        DemoDirector demo(*context_->vehicle(), 500, false);
+        QVERIFY(!demo.running());
+        demo.start();
+        QVERIFY(demo.running());
+        QTest::qWait(50);
+        demo.stop();
+        QVERIFY(!demo.running());
     }
 
     void cleanupTestCase() {

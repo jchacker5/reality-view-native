@@ -13,6 +13,7 @@ qt_add_qml_module(rvn_ui
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/qml/RealityView
     SOURCES
         app_context.cpp app_context.hpp
+        demo_director.cpp demo_director.hpp
         frame_monitor.cpp frame_monitor.hpp
         sparkline_item.cpp sparkline_item.hpp
         vehicle_scene_item.cpp vehicle_scene_item.hpp

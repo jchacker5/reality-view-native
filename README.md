@@ -9,7 +9,7 @@
 ![C++20](https://img.shields.io/badge/C%2B%2B-20-3d7bff)
 ![Qt 6](https://img.shields.io/badge/Qt-6.8%2B-3ecf8e)
 
-<img src="docs/media/screenshot.png" alt="Reality View Native: a perspective chase view of the ego car on a three-lane highway with a blue planned-path ribbon, and panels for drive controls, frame-time statistics and telemetry pipeline health" width="900">
+<img src="docs/media/demo.gif" alt="Reality View Native 30-second demo: Autopilot driving in traffic, Q left lane change, S manual takeover, 4 kHz telemetry with unchanged frame rate, and a 3 s producer stall showing the Telemetry stale banner while rendering continues" width="900">
 
 </div>
 
@@ -101,6 +101,7 @@ ctest --preset dev
 | `--msaa <0\|2\|4\|8>` | Multisample anti-aliasing (default 4) |
 | `--view <3d\|2d>` | Initial camera: tilted chase view or top-down |
 | `--panel <on\|off>` | Show the side panel, or the visualization only |
+| `--demo` | Play a scripted 30 s demo sequence (lane change, manual takeover, 4 kHz, 3 s stall) |
 
 **Keys:** `W`/`S` throttle and brake · `A`/`D` steer · `Space` Autopilot · `Q`/`E` lane change ·
 `[`/`]` cruise speed · `T` 2D/3D · `P` panel · `+`/`−` zoom · `R` reset.
